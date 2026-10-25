@@ -20,6 +20,12 @@ jobs:
     name: Android APK (RN)
     runs-on: [self-hosted, android]
     timeout-minutes: 45
+    env:
+      # The runner's Android SDK lives at /opt/android-sdk (see
+      # bin/prep-build-runner.sh --android). Set it here too so the build
+      # does not depend on a hand-maintained runner .env file.
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
