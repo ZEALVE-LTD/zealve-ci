@@ -1,0 +1,54 @@
+name: reusable-android
+
+# Android APK build for the React Native app, on the self-hosted Linux runner
+# prepared by bin/prep-build-runner.sh --android (vps3). iOS builds are owner-
+# local on the MacBook (owner directive 2026-10-25: no macOS CI runners).
+#
+#   jobs:
+#     android:
+#       uses: ZEALVE-LTD/zealve-infra/.github/workflows/reusable-android.yml@main
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: false
+        type: string
+        default: "rnapp"
+
+jobs:
+  android-apk:
+    name: Android APK (RN)
+    runs-on: [self-hosted, android]
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild native project
+        run: npx expo prebuild -p android --no-install
+
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zealve-Order-RN-Android-APK
+          path: ${{ inputs.working-directory }}/android/app/build/outputs/apk/debug/app-debug.apk

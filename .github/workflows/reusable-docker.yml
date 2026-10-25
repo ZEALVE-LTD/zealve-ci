@@ -1,0 +1,75 @@
+name: reusable-docker
+
+# Central docker build+push, owned by zealve-infra (owner directive 2026-10-25:
+# all CI/CD/build responsibility lives here). App repos call this from a stub:
+#
+#   jobs:
+#     build-push:
+#       uses: ZEALVE-LTD/zealve-infra/.github/workflows/reusable-docker.yml@main
+#       with:
+#         app: web
+#       secrets: inherit
+#
+# Caller repo needs REGISTRY_USER / REGISTRY_PASSWORD secrets (registry.zealve.com).
+# Images land as registry.zealve.com/zealve/<app>:sha-<short12> (immutable, per
+# commit) and :stable (moving alias for stack-file defaults). vps1's
+# deploy-apps.sh polls the repo SHA and rolls the swarm service to the sha tag.
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+        description: image name under registry.zealve.com/zealve/
+      context:
+        required: false
+        type: string
+        default: "."
+      dockerfile:
+        required: false
+        type: string
+        default: "Dockerfile"
+      build_args:
+        required: false
+        type: string
+        default: ""
+        description: space-separated KEY=VAL docker build args
+    secrets:
+      REGISTRY_USER:
+        required: false
+      REGISTRY_PASSWORD:
+        required: false
+
+jobs:
+  build-push:
+    runs-on: [self-hosted, build]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=sha-$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          args=""
+          for kv in ${{ inputs.build_args }}; do args="$args --build-arg $kv"; done
+          docker build $args \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -f "${{ inputs.dockerfile }}" \
+            -t registry.zealve.com/zealve/${{ inputs.app }}:${{ steps.tag.outputs.tag }} \
+            -t registry.zealve.com/zealve/${{ inputs.app }}:stable \
+            "${{ inputs.context }}"
+
+      - name: Login to registry.zealve.com
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.zealve.com -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - name: Push
+        run: |
+          docker push registry.zealve.com/zealve/${{ inputs.app }}:${{ steps.tag.outputs.tag }}
+          docker push registry.zealve.com/zealve/${{ inputs.app }}:stable
+
+      - name: Logout
+        if: always()
+        run: docker logout registry.zealve.com || true
