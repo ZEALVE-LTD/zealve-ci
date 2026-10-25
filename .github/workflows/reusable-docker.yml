@@ -44,11 +44,6 @@ jobs:
   build-push:
     runs-on: [self-hosted, build]
     timeout-minutes: 40
-    # Per-job docker config: several runner services on one VPS share the host
-    # docker daemon and the ghrunner home — a shared config file lets one job's
-    # logout wipe a concurrent job's registry login.
-    env:
-      DOCKER_CONFIG: ${{ runner.temp }}/dockercfg
     steps:
       - uses: actions/checkout@v4
 
@@ -68,10 +63,16 @@ jobs:
             "${{ inputs.context }}"
 
       - name: Login to registry.zealve.com
-        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.zealve.com -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+        # Per-job docker config ($RUNNER_TEMP is wiped after the job): several
+        # runner services on one VPS share the host daemon and ghrunner home —
+        # a shared config file lets one job's logout wipe a concurrent login.
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/dockercfg"
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.zealve.com -u "${{ secrets.REGISTRY_USER }}" --password-stdin
 
       - name: Push
         run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/dockercfg"
           docker push registry.zealve.com/zealve/${{ inputs.app }}:${{ steps.tag.outputs.tag }}
           docker push registry.zealve.com/zealve/${{ inputs.app }}:stable
 
