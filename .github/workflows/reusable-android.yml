@@ -20,6 +20,19 @@ jobs:
     name: Android APK (RN)
     runs-on: [self-hosted, android]
     timeout-minutes: 45
+    env:
+      # The runner's Android SDK lives at /opt/android-sdk (see
+      # bin/prep-build-runner.sh --android). Set it here too so the build
+      # does not depend on a hand-maintained runner .env file.
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      # vps3 has 7.8 GB RAM. Cap the Gradle + Kotlin daemon heaps so the
+      # native (NDK/CMake) build cannot trigger a kernel OOM kill of java
+      # (exit 137, run 40216736488). Pairs with 8G swap on the host.
+      GRADLE_OPTS: >-
+        -Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+        -Dorg.gradle.daemon=false
+        -Dkotlin.daemon.jvmargs=-Xmx1536m
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
