@@ -44,6 +44,11 @@ jobs:
   build-push:
     runs-on: [self-hosted, build]
     timeout-minutes: 40
+    # Per-job docker config: several runner services on one VPS share the host
+    # docker daemon and the ghrunner home — a shared config file lets one job's
+    # logout wipe a concurrent job's registry login.
+    env:
+      DOCKER_CONFIG: ${{ runner.temp }}/dockercfg
     steps:
       - uses: actions/checkout@v4
 
