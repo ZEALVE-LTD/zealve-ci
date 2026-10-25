@@ -78,4 +78,9 @@ jobs:
 
       - name: Logout
         if: always()
-        run: docker logout registry.zealve.com || true
+        # Same DOCKER_CONFIG as Login/Push — a bare `docker logout` would edit
+        # the shared ~/.docker/config.json and kill concurrent jobs' creds.
+        # The per-job config lives in $RUNNER_TEMP, wiped after the job anyway.
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/dockercfg"
+          docker logout registry.zealve.com || true
