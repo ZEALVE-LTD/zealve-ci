@@ -1,2 +1,8 @@
 config.bat
 node_modules
+
+# --- secrets: never commit (restored after malware gitignore swap) ---
+.env
+.env.*
+*.env
+*.token
